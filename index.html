@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>진짜 얼굴을 찾아라: 인공지능과 GAN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f2f5fa;--card:#fff;--ink:#14213d;--mute:#5a6580;--line:#d7dded;--acc:#2f5bff;--gen:#e0359a;--dis:#0b9a9a;--ok:#1b9a5b;--bad:#d64545;--soft:#e8eeff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1424;--card:#172038;--ink:#eaf0ff;--mute:#9aa7c7;--line:#2a3558;--acc:#7b9bff;--gen:#ff6cc0;--dis:#3fd1d1;--ok:#4cd08a;--bad:#ff7b7b;--soft:#1f2b4d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1424;--card:#172038;--ink:#eaf0ff;--mute:#9aa7c7;--line:#2a3558;--acc:#7b9bff;--gen:#ff6cc0;--dis:#3fd1d1;--ok:#4cd08a;--bad:#ff7b7b;--soft:#1f2b4d;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;line-height:1.7;font-size:16px}
+h1,h2,h3{font-family:"Jua","Noto Sans KR",sans-serif;font-weight:400;line-height:1.3;margin:0 0 .5em}
+h1{font-size:clamp(1.9rem,6vw,3rem)}h2{font-size:1.6rem}h3{font-size:1.2rem}
+p{margin:.4em 0 .9em;max-width:62ch}
+header{padding:28px 18px 8px;max-width:920px;margin:0 auto}
+header p{color:var(--mute)}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+nav .in{max-width:920px;margin:0 auto;display:flex;gap:6px;padding:8px 18px;overflow-x:auto}
+nav button{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+nav button[aria-current="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+main{max-width:920px;margin:0 auto;padding:18px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0 0 16px}
+.goal li{margin:.2em 0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.tag{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--soft);font-size:.85rem;font-weight:700;margin-bottom:6px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{border:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+th{background:var(--soft)}
+/* GAN duel */
+.duel{display:grid;gap:14px;grid-template-columns:1fr 1fr;align-items:start}
+@media(max-width:620px){.duel{grid-template-columns:1fr}}
+.side{border:2px solid var(--line);border-radius:14px;padding:14px;text-align:center}
+.side.g{border-color:var(--gen)}.side.d{border-color:var(--dis)}
+.side h3{margin-bottom:.2em}.side.g h3{color:var(--gen)}.side.d h3{color:var(--dis)}
+canvas{width:100%;max-width:240px;aspect-ratio:1;border-radius:12px;background:var(--soft)}
+.bar{height:22px;border-radius:11px;background:var(--soft);overflow:hidden;margin:8px 0}
+.bar i{display:block;height:100%;background:var(--dis);width:98%;transition:width .4s}
+.ctrl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.btn{font:inherit;font-weight:700;border:0;background:var(--acc);color:#fff;padding:10px 18px;border-radius:10px;cursor:pointer}
+.btn.alt{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.say{min-height:3.2em;font-weight:500}
+/* quiz */
+.q{border-top:1px solid var(--line);padding:10px 0}
+.q button{font:inherit;margin:4px 6px 4px 0;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.q button.right{background:var(--ok);color:#fff;border-color:var(--ok)}
+.q button.wrong{background:var(--bad);color:#fff;border-color:var(--bad)}
+.q .why{color:var(--mute);font-size:.95rem;margin:0}
+/* practice */
+input[type=text],textarea,select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
+td .rs{display:flex;gap:6px}
+td .rs button{font:inherit;font-weight:700;width:38px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+td .rs button.o.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+td .rs button.x.on{background:var(--bad);color:#fff;border-color:var(--bad)}
+.score{font-family:"Jua",sans-serif;font-size:2rem;color:var(--acc)}
+.clues{columns:2 260px;padding-left:1.1em;margin:.4em 0}
+.clues li{break-inside:avoid;margin:.3em 0}
+.note{color:var(--mute);font-size:.92rem}
+label.f{display:block;font-weight:700;margin:14px 0 4px}
+.toast{min-height:1.5em;color:var(--ok);font-weight:700}
+details{margin-top:10px}summary{cursor:pointer;font-weight:700}
+@media(prefers-reduced-motion:reduce){.bar i{transition:none}}
+@media print{nav,.btn,.ctrl{display:none}section{display:block!important}}
+</style>
+</head>
+<body>
+<header>
+<h1>진짜 얼굴을 찾아라</h1>
+<p>중학교 2학년 정보 · 인공지능과 GAN을 배우고, 가짜 얼굴을 직접 가려내 봅시다.</p>
+</header>
+<nav><div class="in" role="tablist">
+<button data-t="ai">1. 인공지능</button><button data-t="gan">2. GAN</button><button data-t="practice">3. 실습</button><button data-t="assess">4. 수행평가</button>
+</div></nav>
+<main>
+
+<section id="ai">
+<div class="card"><h2>오늘의 학습 목표</h2>
+<ol class="goal"><li>인공지능이 무엇인지 내 말로 설명할 수 있다.</li><li>GAN의 생성자와 판별자가 하는 일을 설명할 수 있다.</li><li>AI가 만든 얼굴의 특징을 찾고, 생성형 AI를 쓸 때 조심할 점을 말할 수 있다.</li></ol></div>
+<div class="card"><h2>인공지능이란?</h2>
+<p>사람이 하는 학습, 판단, 추론, 창작 같은 지능적인 일을 컴퓨터가 할 수 있도록 만든 기술입니다.</p>
+<div class="grid">
+<div><span class="tag">음성</span><br>음성 비서, 자동 자막</div>
+<div><span class="tag">이미지</span><br>얼굴 인식 잠금 해제, 사진 앱의 인물 분류</div>
+<div><span class="tag">추천</span><br>영상·음악 추천</div>
+<div><span class="tag">언어</span><br>번역, 챗봇</div>
+<div><span class="tag">생성</span><br>그림 생성, 글쓰기 도우미</div></div>
+<p class="note" style="margin-top:12px">생각해 보기: 오늘 하루 중 인공지능을 쓴 순간은 언제였나요?</p></div>
+<div class="card"><h3>인공지능 ⊃ 머신러닝 ⊃ 딥러닝</h3>
+<p><b>머신러닝</b>은 사람이 규칙을 일일이 알려주는 대신, 컴퓨터가 데이터에서 스스로 규칙을 찾아 학습하는 방법입니다. <b>딥러닝</b>은 사람의 신경망을 본뜬 인공신경망을 여러 층으로 쌓아 학습하는 머신러닝의 한 방법입니다.</p>
+<div class="scroll"><table style="min-width:420px"><tr><th>구분</th><th>하는 일</th><th>예</th></tr>
+<tr><td>분류(판별) AI</td><td>주어진 것이 무엇인지 알아맞힘</td><td>사진 속 동물이 고양이인지 강아지인지 구분</td></tr>
+<tr><td>생성 AI</td><td>새로운 것을 만들어 냄</td><td>존재하지 않는 얼굴 이미지 만들기</td></tr></table></div>
+<p style="margin-top:10px">GAN은 이 두 가지 AI를 함께 사용하는 알고리즘입니다.</p>
+<button class="btn" data-go="gan">GAN 알아보기</button></div>
+</section>
+
+<section id="gan">
+<div class="card"><h2>GAN: 서로 겨루며 크는 두 AI</h2>
+<p>GAN은 Generative Adversarial Network, 우리말로 “생성적 적대 신경망”입니다. 2014년 이언 굿펠로(Ian Goodfellow) 등이 발표했습니다. 핵심은 두 인공신경망이 경쟁하면서 함께 성장한다는 것입니다.</p>
+<div class="grid">
+<div><span class="tag" style="color:var(--gen)">생성자 (Generator)</span><br>진짜처럼 보이는 가짜를 만든다. 비유: 위조지폐범</div>
+<div><span class="tag" style="color:var(--dis)">판별자 (Discriminator)</span><br>진짜와 가짜를 구분한다. 비유: 경찰</div></div></div>
+
+<div class="card"><h3>훈련 시뮬레이션</h3>
+<p class="note">버튼을 눌러 훈련을 한 라운드씩 진행해 보세요. 그림은 실제 GAN이 아니라 원리를 보여 주는 단순한 모형입니다.</p>
+<div class="duel">
+<div class="side g"><h3>생성자</h3><canvas id="cv" width="240" height="240" aria-label="생성자가 만든 얼굴 그림"></canvas><div>라운드 <b id="rd">0</b> / 10</div></div>
+<div class="side d"><h3>판별자</h3><div class="say" id="say" aria-live="polite"></div>
+<div>“가짜일 확률” <b id="pct">98%</b></div><div class="bar"><i id="fill"></i></div></div></div>
+<div class="ctrl"><button class="btn" id="step">한 라운드 훈련</button><button class="btn alt" id="reset">처음부터</button></div>
+<p class="note" style="margin-top:10px">라운드가 늘수록 생성자는 더 정교한 가짜를 만들고, 판별자는 구별하기 어려워집니다. 가짜일 확률이 50%에 가까우면 진짜와 가짜를 거의 구별하지 못한다는 뜻입니다.</p></div>
+
+<div class="card"><h3>학습 과정</h3>
+<ol><li>생성자가 처음에는 엉성한 가짜를 만든다.</li><li>판별자가 진짜와 가짜를 보고 “이건 가짜”라고 알아낸다.</li><li>생성자는 들킨 이유를 알게 되어 더 정교한 가짜를 만든다.</li><li>판별자도 더 정교하게 구별하는 법을 배운다.</li><li>이 과정을 아주 많이 반복하면 진짜와 거의 구분되지 않는 결과물이 나온다.</li></ol>
+</div>
+
+<div class="card"><h3>확인 질문</h3><div id="quiz"></div>
+<button class="btn" data-go="practice" style="margin-top:12px">실습하러 가기</button></div>
+</section>
+
+<section id="practice">
+<div class="card"><h2>실습: Which Face Is Real?</h2>
+<p>사이트에는 얼굴 사진 두 장이 나옵니다. 한 장은 실제 사람, 한 장은 GAN이 만든 얼굴입니다. 진짜라고 생각하는 쪽을 고르면 바로 정답을 알려 줍니다.</p>
+<a class="btn" href="https://www.whichfaceisreal.com" target="_blank" rel="noopener noreferrer" style="display:inline-block;text-decoration:none">whichfaceisreal.com 열기 (새 탭)</a>
+<p class="note" style="margin-top:8px">이 사이트는 미국 워싱턴대학교의 Jevin West, Carl Bergstrom 교수가 만들었습니다. 사이트가 열리지 않으면 선생님께 알려 주세요.</p>
+<ol><li>사이트에서 진짜라고 생각하는 사진을 고릅니다. 고르기 전에 그 이유를 한 번 생각해 봅니다.</li><li>정답을 확인하고, 틀렸다면 어떤 단서를 놓쳤는지 찾아봅니다.</li><li>10번 반복한 뒤 정답 개수와 발견한 단서를 기억해 두세요. 수행평가 문항 3에 씁니다.</li></ol></div>
+
+<div class="card"><h3>가짜 얼굴을 찾는 단서</h3>
+<ul class="clues"><li><b>배경</b> 흐릿하거나 뒤틀려 있고 사물 모양이 어색하다.</li><li><b>머리카락</b> 실처럼 풀어져 있거나 배경과 섞여 있다.</li><li><b>눈·안경</b> 양쪽 눈 모양이 다르거나 안경테가 비대칭이다.</li><li><b>귀·귀걸이</b> 양쪽 모양이나 귀걸이가 서로 다르다.</li><li><b>치아</b> 개수나 배열이 이상하다.</li><li><b>얼룩</b> 물방울 같은 얼룩이 보이는 경우가 있다.</li></ul></div>
+
+<div class="card"><h3>생각해 볼 문제</h3>
+<div class="scroll"><table style="min-width:420px"><tr><th>긍정적 활용</th><th>부정적 활용</th></tr><tr><td>영화·게임 캐릭터 제작<br>가상 모델, 디자인 아이디어<br>부족한 학습 데이터 보완</td><td>딥페이크 허위 영상, 사기<br>타인의 얼굴을 도용한 가짜 계정<br>가짜 뉴스 확산</td></tr></table></div>
+<ul><li>온라인에서 본 사진과 영상은 바로 믿지 말고 출처를 확인한다.</li><li>다른 사람의 사진으로 가짜 이미지나 영상을 만들지 않는다.</li><li>피해를 주는 이미지의 제작과 유포는 법적 책임이 따를 수 있다.</li><li>AI가 만든 결과물을 쓸 때는 AI를 활용했다고 밝힌다.</li></ul>
+<button class="btn" data-go="assess">수행평가로 가기</button></div>
+</section>
+
+<section id="assess">
+<div class="card"><h2>수행평가: 나는 GAN 전문가!</h2>
+<p>A4 1쪽 분량의 서술형 보고서입니다. 제출 방법과 기한은 선생님의 안내를 따르세요.</p>
+<div class="grid"><div><label class="f" for="sid">학번</label><input type="text" id="sid" data-a="sid" inputmode="numeric"></div><div><label class="f" for="nm">이름</label><input type="text" id="nm" data-a="nm"></div></div>
+<label class="f" for="a1">문항 1. 인공지능을 한 문장으로 설명해 보세요. (4점)</label><textarea id="a1" rows="2" data-a="a1"></textarea>
+<label class="f" for="a2">문항 2. GAN을 이루는 두 요소의 이름과 역할을 쓰고, “위조지폐범과 경찰” 비유로 두 요소가 어떻게 함께 성장하는지 설명해 보세요. (6점)</label><textarea id="a2" rows="5" data-a="a2"></textarea>
+<label class="f" for="a3">문항 3. Which Face Is Real 실습에서 나의 정답 개수를 쓰고, 가짜 얼굴을 구별하는 데 도움이 된 단서 두 가지를 구체적인 예와 함께 적어 보세요. (5점)</label><textarea id="a3" rows="5" data-a="a3"></textarea>
+<label class="f" for="a4">문항 4. 생성 AI가 주는 좋은 점 한 가지와 문제점 한 가지를 쓰고, 문제를 막기 위해 내가 실천할 행동 한 가지를 제시해 보세요. (5점)</label><textarea id="a4" rows="5" data-a="a4"></textarea>
+<div class="ctrl"><button class="btn" id="copy">내용 복사하기</button><button class="btn" id="pdf">PDF로 저장하기</button><button class="btn alt" id="clra">지우기</button></div>
+<div class="toast" id="toast" role="status"></div>
+<p class="note">입력한 내용은 이 기기의 브라우저에만 저장됩니다. 학번과 이름을 입력하고 PDF로 저장하면 “학번 이름.pdf” 파일이 만들어집니다. 이 파일을 선생님이 안내한 방법으로 제출해 주세요.</p></div>
+
+<div class="card"><h3>채점 기준 (총 20점)</h3>
+<div class="scroll"><table><tr><th>문항</th><th>배점</th><th>상</th><th>중</th><th>하</th></tr>
+<tr><td>1. 개념</td><td>4</td><td>4: 지능적인 일을 하는 컴퓨터 기술로 정확히 설명</td><td>3: 의미는 맞지만 표현 부족</td><td>2: 부정확하거나 일부만 맞음</td></tr>
+<tr><td>2. GAN 원리</td><td>6</td><td>6: 이름, 역할, 경쟁을 통한 성장을 모두 정확히 설명</td><td>4: 이름과 역할은 맞고 성장 설명 부족</td><td>2: 한 요소만 정확하거나 설명 매우 부족</td></tr>
+<tr><td>3. 실습 분석</td><td>5</td><td>5: 정답 개수와 단서 두 가지를 구체적 예와 함께 제시</td><td>3: 예가 구체적이지 않거나 한 가지만 제시</td><td>1: 결과만 쓰고 분석 없음</td></tr>
+<tr><td>4. 생각 나누기</td><td>5</td><td>5: 좋은 점, 문제점, 실천 방법이 모두 타당하고 구체적</td><td>3: 한 가지가 부족하거나 구체성이 떨어짐</td><td>1: 두 가지 이상 부족</td></tr></table></div>
+<details><summary>성취수준별 평어 예시</summary>
+<p><b>18~20점 (상)</b> GAN의 원리를 정확히 이해하고 실습 결과를 근거로 가짜 이미지의 특징을 분석하며, 생성 AI의 올바른 활용 태도를 보임.<br><b>14~17점 (중)</b> GAN의 기본 원리를 이해하고 실습에 성실히 참여했으며 생성 AI의 장단점을 설명할 수 있음.<br><b>13점 이하 (하)</b> 인공지능과 GAN의 기본 개념 이해에 도움이 필요하며, 지원을 받아 실습에 참여함.</p>
+<p class="note">점수 구간과 배점은 학교 평가 계획에 맞게 조정해서 사용하세요.</p></details></div>
+</section>
+</main>
+
+<script>
+(function(){
+var $=function(s,r){return (r||document).querySelector(s)},$$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var store={get:function(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+/* tabs, hash routing */
+var names=["ai","gan","practice","assess"];
+function show(n){if(names.indexOf(n)<0)n="ai";$$("section").forEach(function(s){s.classList.toggle("on",s.id===n)});$$("nav button").forEach(function(b){b.setAttribute("aria-current",b.dataset.t===n?"true":"false")});window.scrollTo(0,0)}
+function route(){show(location.hash.slice(1))}
+$$("nav button").forEach(function(b){b.onclick=function(){location.hash=b.dataset.t}});
+$$("[data-go]").forEach(function(b){b.onclick=function(){location.hash=b.dataset.go}});
+window.addEventListener("hashchange",route);route();
+
+/* GAN simulation */
+var cv=$("#cv"),cx=cv.getContext("2d"),round=0,seed=[];
+for(var i=0;i<14;i++)seed.push(Math.random()*2-1);
+var msgs=["이건 가짜가 확실해! 얼굴 모양이 너무 어색해.","눈 위치가 이상한데… 아직은 가짜로 보여.","조금 나아졌지만 비대칭이 눈에 띄어.","꽤 그럴듯하네. 그래도 가짜 같아.","거의 진짜 같은데… 잠깐만 더 볼게.","음… 이제 헷갈리기 시작했어.","진짜인지 가짜인지 판단하기 어려워졌어.","거의 구별이 안 돼.","아주 정교해졌어. 찍기에 가까워.","구별하기 어려워! 판별자도 한계에 다다랐어.", "훈련 완료! 진짜와 가짜를 거의 구별하지 못해요."];
+function draw(){
+ var n=(10-round)/10,s=seed,c=cx,w=240;
+ c.clearRect(0,0,w,w);
+ c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--soft")||"#e8eeff";c.fillRect(0,0,w,w);
+ c.fillStyle="rgba(120,140,200,.35)";c.beginPath();c.arc(40+s[0]*40*n,60+s[1]*40*n,30+Math.abs(s[2])*60*n,0,7);c.fill();
+ c.fillStyle="#e9b996";c.beginPath();c.ellipse(120+s[3]*20*n,125+s[4]*8*n,70-s[5]*18*n,88+s[6]*14*n,s[7]*.4*n,0,7);c.fill();
+ c.fillStyle="#3b2a20";c.beginPath();c.ellipse(120,52+s[8]*8*n,74,36,0,Math.PI,0);c.fill();
+ function eye(x,y,r){c.fillStyle="#fff";c.beginPath();c.ellipse(x,y,r*1.4,r,0,0,7);c.fill();c.fillStyle="#2a1d16";c.beginPath();c.arc(x,y,r*.6,0,7);c.fill()}
+ eye(88+s[9]*14*n,108+s[10]*10*n,9+s[11]*6*n);
+ eye(152-s[9]*8*n,108-s[10]*12*n,9-s[11]*6*n);
+ c.fillStyle="#c9866b";c.beginPath();c.ellipse(120,132+s[12]*6*n,6,10,0,0,7);c.fill();
+ c.strokeStyle="#a24b4b";c.lineWidth=5;c.lineCap="round";c.beginPath();c.moveTo(94,168+s[13]*10*n);c.quadraticCurveTo(120,184-s[13]*18*n,148,168-s[12]*10*n);c.stroke();
+}
+function upd(){
+ var p=Math.round(50+48*(10-round)/10);
+ $("#rd").textContent=round;$("#pct").textContent=p+"%";$("#fill").style.width=p+"%";$("#say").textContent=msgs[round];$("#step").disabled=round>=10;draw();
+}
+$("#step").onclick=function(){if(round<10){round++;upd()}};
+$("#reset").onclick=function(){round=0;seed=seed.map(function(){return Math.random()*2-1});upd()};
+upd();
+matchMedia("(prefers-color-scheme:dark)").addEventListener&&matchMedia("(prefers-color-scheme:dark)").addEventListener("change",draw);
+
+/* quiz */
+var Q=[
+ ["GAN에서 “가짜를 만드는” 쪽은 누구일까요?",["생성자","판별자"],0,"생성자는 진짜처럼 보이는 가짜 데이터를 만듭니다."],
+ ["판별자가 “가짜”라고 판정하면 생성자는 어떻게 될까요?",["아무 변화가 없다","더 진짜 같은 결과를 만들도록 학습한다"],1,"판정 결과가 생성자에게 되돌아가 다음 학습에 쓰입니다."],
+ ["GAN 이름에 “적대적”이 붙은 이유는?",["두 신경망이 서로 속이고 구별하며 경쟁하기 때문","사람과 컴퓨터가 싸우기 때문"],0,"생성자는 속이려 하고 판별자는 속지 않으려 합니다."]];
+var qh=$("#quiz");
+Q.forEach(function(q,i){
+ var d=document.createElement("div");d.className="q";
+ var t=document.createElement("div");t.textContent=(i+1)+". "+q[0];d.appendChild(t);
+ var why=document.createElement("p");why.className="why";
+ q[1].forEach(function(o,j){var b=document.createElement("button");b.textContent=o;
+  b.onclick=function(){$$("button",d).forEach(function(x){x.classList.remove("right","wrong")});b.classList.add(j===q[2]?"right":"wrong");why.textContent=j===q[2]?"정답! "+q[3]:"다시 생각해 봐요."};
+  d.appendChild(b)});
+ d.appendChild(why);qh.appendChild(d)});
+
+/* assessment */
+var as=store.get("as")||{};
+$$("[data-a]").forEach(function(el){el.value=as[el.dataset.a]||"";el.oninput=function(){as[el.dataset.a]=el.value;store.set("as",as)}});
+function toast(m){$("#toast").textContent=m;setTimeout(function(){$("#toast").textContent=""},2500)}
+$("#copy").onclick=function(){
+ var t="[수행평가] 나는 GAN 전문가!\n학번: "+(as.sid||"")+"  이름: "+(as.nm||"")+"\n\n문항 1\n"+(as.a1||"")+"\n\n문항 2\n"+(as.a2||"")+"\n\n문항 3\n"+(as.a3||"")+"\n\n문항 4\n"+(as.a4||"");
+ function fb(){var ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();var ok=false;try{ok=document.execCommand("copy")}catch(e){}document.body.removeChild(ta);toast(ok?"복사했어요.":"복사하지 못했어요. PDF로 저장해 주세요.")}
+ try{navigator.clipboard.writeText(t).then(function(){toast("복사했어요.")},fb)}catch(e){fb()}};
+
+/* PDF 저장: 캔버스에 쓴 글을 JPEG로 만들어 PDF 파일로 묶는다 */
+var dl=null;
+if(window.claude&&claude.use){claude.use("downloads").then(function(d){dl=d;if(!d)$("#pdf").hidden=true}).catch(function(){$("#pdf").hidden=true})}
+async function makePdf(sid,nm){
+ var W=1240,H=1754,M=110,fam='"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif',pages=[],c,y;
+ var all=$$("[data-a]").map(function(e){return e.value}).join("")+"수행평가 나는 GAN 전문가 학번 이름 문항 0123456789";
+ try{await Promise.all([document.fonts.load('400 30px "Noto Sans KR"',all),document.fonts.load('700 30px "Noto Sans KR"',all)])}catch(e){}
+ function np(){var cv=document.createElement("canvas");cv.width=W;cv.height=H;c=cv.getContext("2d");c.fillStyle="#fff";c.fillRect(0,0,W,H);c.fillStyle="#111";c.textBaseline="top";pages.push(cv);y=M}
+ function wrap(t,f){c.font=f;var out=[];String(t).split("\n").forEach(function(p){var l="",sp=-1;for(var i=0;i<p.length;i++){l+=p[i];if(p[i]===" ")sp=l.length;if(c.measureText(l).width>W-2*M){var cut=sp>0?sp:l.length-1;out.push(l.slice(0,cut));l=l.slice(cut);sp=-1}}out.push(l)});return out}
+ function para(t,size,bold,gap){var f=(bold?"700 ":"400 ")+size+"px "+fam,lh=Math.round(size*1.6);wrap(t,f).forEach(function(l){if(y+lh>H-M)np();c.font=f;c.fillText(l,M,y);y+=lh});y+=gap||0}
+ np();
+ para("수행평가: 나는 GAN 전문가!",46,true,16);
+ para("학번: "+sid+"      이름: "+nm,30,false,34);
+ ["a1","a2","a3","a4"].forEach(function(k){para($('label[for="'+k+'"]').textContent,28,true,8);para(as[k]||"(작성하지 않음)",28,false,36)});
+ var enc=new TextEncoder(),chunks=[],off=0,xr=[],N=2+3*pages.length;
+ function put(x){var u=typeof x==="string"?enc.encode(x):x;chunks.push(u);off+=u.length}
+ function obj(n,body){xr[n]=off;put(n+" 0 obj\n"+body+"\nendobj\n")}
+ put("%PDF-1.4\n");
+ obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+ obj(2,"<< /Type /Pages /Count "+pages.length+" /Kids ["+pages.map(function(_,i){return (3+3*i)+" 0 R"}).join(" ")+"] >>");
+ pages.forEach(function(cv,i){
+  var b=atob(cv.toDataURL("image/jpeg",0.88).split(",")[1]),u=new Uint8Array(b.length),s="q 595 0 0 842 0 0 cm /Im0 Do Q";
+  for(var j=0;j<b.length;j++)u[j]=b.charCodeAt(j);
+  obj(3+3*i,"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im0 "+(5+3*i)+" 0 R >> >> /Contents "+(4+3*i)+" 0 R >>");
+  obj(4+3*i,"<< /Length "+s.length+" >>\nstream\n"+s+"\nendstream");
+  xr[5+3*i]=off;put((5+3*i)+" 0 obj\n<< /Type /XObject /Subtype /Image /Width "+W+" /Height "+H+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+u.length+" >>\nstream\n");put(u);put("\nendstream\nendobj\n")});
+ var xo=off,t="xref\n0 "+(N+1)+"\n0000000000 65535 f \n";
+ for(var n=1;n<=N;n++)t+=String(xr[n]).padStart(10,"0")+" 00000 n \n";
+ put(t+"trailer\n<< /Size "+(N+1)+" /Root 1 0 R >>\nstartxref\n"+xo+"\n%%EOF");
+ return new Blob(chunks,{type:"application/pdf"});
+}
+$("#pdf").onclick=async function(){
+ var sid=(as.sid||"").trim(),nm=(as.nm||"").trim();
+ if(!sid||!nm){toast("학번과 이름을 먼저 입력해 주세요.");return}
+ if(!dl){toast("이 화면에서는 PDF를 저장할 수 없어요.");return}
+ var b=$("#pdf");b.disabled=true;
+ try{
+  var blob=await makePdf(sid,nm),fn=(sid+" "+nm).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim()+".pdf";
+  await dl.save({filename:fn,data:blob});toast("PDF를 저장했어요: "+fn);
+ }catch(e){toast(e&&e.code==="declined"?"저장을 취소했어요.":"PDF를 저장하지 못했어요. 다시 시도해 주세요.")}
+ b.disabled=false};
+$("#clra").onclick=function(){if(!confirm("작성한 내용을 모두 지울까요?"))return;as={};store.set("as",as);$$("[data-a]").forEach(function(el){el.value=""})};
+})();
+</script>
+</body>
+</html>
