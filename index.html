@@ -1,14 +1,9 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>진짜 얼굴을 찾아라: 인공지능과 GAN</title>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>진짜 얼굴을 찾아라</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f2f5fa;--card:#fff;--ink:#14213d;--mute:#5a6580;--line:#d7dded;--acc:#2f5bff;--gen:#e0359a;--dis:#0b9a9a;--ok:#1b9a5b;--bad:#d64545;--soft:#e8eeff;
-box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{--bg:#f2f5fa;--card:#fff;--ink:#14213d;--mute:#5a6580;--line:#d7dded;--acc:#2f5bff;--gen:#e0359a;--dis:#0b9a9a;--ok:#1b9a5b;--bad:#d64545;--soft:#e8eeff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1424;--card:#172038;--ink:#eaf0ff;--mute:#9aa7c7;--line:#2a3558;--acc:#7b9bff;--gen:#ff6cc0;--dis:#3fd1d1;--ok:#4cd08a;--bad:#ff7b7b;--soft:#1f2b4d;color-scheme:dark}}
 :root[data-theme="dark"]{--bg:#0e1424;--card:#172038;--ink:#eaf0ff;--mute:#9aa7c7;--line:#2a3558;--acc:#7b9bff;--gen:#ff6cc0;--dis:#3fd1d1;--ok:#4cd08a;--bad:#ff7b7b;--soft:#1f2b4d;color-scheme:dark}
 *{box-sizing:border-box}
@@ -70,11 +65,9 @@ details{margin-top:10px}summary{cursor:pointer;font-weight:700}
 @media(prefers-reduced-motion:reduce){.bar i{transition:none}}
 @media print{nav,.btn,.ctrl{display:none}section{display:block!important}}
 </style>
-</head>
-<body>
 <header>
 <h1>진짜 얼굴을 찾아라</h1>
-<p>중학교 2학년 정보 · 인공지능과 GAN을 배우고, 가짜 얼굴을 직접 가려내 봅시다.</p>
+<p>중학교 정보 · 인공지능과 GAN을 배우고, 가짜 얼굴을 직접 가려내 봅시다.</p>
 </header>
 <nav><div class="in" role="tablist">
 <button data-t="ai">1. 인공지능</button><button data-t="gan">2. GAN</button><button data-t="practice">3. 실습</button><button data-t="assess">4. 수행평가</button>
@@ -229,8 +222,7 @@ $("#copy").onclick=function(){
  try{navigator.clipboard.writeText(t).then(function(){toast("복사했어요.")},fb)}catch(e){fb()}};
 
 /* PDF 저장: 캔버스에 쓴 글을 JPEG로 만들어 PDF 파일로 묶는다 */
-var dl=null;
-if(window.claude&&claude.use){claude.use("downloads").then(function(d){dl=d;if(!d)$("#pdf").hidden=true}).catch(function(){$("#pdf").hidden=true})}
+var dlP=(window.claude&&claude.use)?claude.use("downloads").catch(function(){return null}):Promise.resolve(null);
 async function makePdf(sid,nm){
  var W=1240,H=1754,M=110,fam='"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif',pages=[],c,y;
  var all=$$("[data-a]").map(function(e){return e.value}).join("")+"수행평가 나는 GAN 전문가 학번 이름 문항 0123456789";
@@ -262,15 +254,17 @@ async function makePdf(sid,nm){
 $("#pdf").onclick=async function(){
  var sid=(as.sid||"").trim(),nm=(as.nm||"").trim();
  if(!sid||!nm){toast("학번과 이름을 먼저 입력해 주세요.");return}
- if(!dl){toast("이 화면에서는 PDF를 저장할 수 없어요.");return}
  var b=$("#pdf");b.disabled=true;
+ var dl=await dlP;
+ if(!dl&&window.claude){b.disabled=false;toast("이 화면에서는 PDF를 저장할 수 없어요. 내용 복사하기를 이용해 주세요.");return}
  try{
   var blob=await makePdf(sid,nm),fn=(sid+" "+nm).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim()+".pdf";
-  await dl.save({filename:fn,data:blob});toast("PDF를 저장했어요: "+fn);
+  if(dl){await dl.save({filename:fn,data:blob})}else{var u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(u)},4000)}
+  toast("PDF를 저장했어요: "+fn);
  }catch(e){toast(e&&e.code==="declined"?"저장을 취소했어요.":"PDF를 저장하지 못했어요. 다시 시도해 주세요.")}
  b.disabled=false};
-$("#clra").onclick=function(){if(!confirm("작성한 내용을 모두 지울까요?"))return;as={};store.set("as",as);$$("[data-a]").forEach(function(el){el.value=""})};
+var armT=null;$("#clra").onclick=function(){var b=this;if(!armT){b.textContent="한 번 더 누르면 모두 지워져요";armT=setTimeout(function(){armT=null;b.textContent="지우기"},4000);return}clearTimeout(armT);armT=null;b.textContent="지우기";as={};store.set("as",as);$$("[data-a]").forEach(function(el){el.value=""});toast("지웠어요.")};
 })();
 </script>
-</body>
-</html>
+
+</body></html>
